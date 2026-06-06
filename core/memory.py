@@ -79,6 +79,14 @@ class MemoryManager:
                 CREATE INDEX IF NOT EXISTS idx_messages_time  ON messages(created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category);
             """)
+            # Migration: tables created before the UNIQUE(key) constraint was
+            # introduced already exist and won't be touched by CREATE TABLE IF
+            # NOT EXISTS. Add the constraint idempotently so ON CONFLICT (key)
+            # is always valid, regardless of when the database was first set up.
+            await conn.execute("""
+                ALTER TABLE facts
+                    ADD CONSTRAINT IF NOT EXISTS facts_key_unique UNIQUE (key)
+            """)
             await self._seed_facts(conn)
 
     async def _seed_facts(self, conn):
@@ -99,7 +107,7 @@ class MemoryManager:
                 """
                 INSERT INTO facts (category, key, value, source)
                 VALUES ($1, $2, $3, 'system')
-                ON CONFLICT (category, key) DO NOTHING
+                ON CONFLICT (key) DO NOTHING
                 """,
                 category, key, value,
             )
@@ -213,7 +221,7 @@ class MemoryManager:
                 """
                 INSERT INTO facts (category, key, value, source)
                 VALUES ($1, $2, $3, $4)
-                ON CONFLICT (category, key)
+                ON CONFLICT (key)
                 DO UPDATE SET value = $3, source = $4, updated_at = NOW()
                 """,
                 category, key, value, source,
