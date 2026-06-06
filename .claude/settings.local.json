@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api *)",
+      "WebFetch(domain:github.com)",
+      "Bash(node *)",
+      "Bash(python3 *)",
+      "Bash(grep -n \"continuousListener\\\\|class ContinuousListener\\\\|init\\(\\)$\" /Users/karlaugustin/nova-mac/static/index.html)",
+      "Bash(grep *)"
+    ]
+  }
+}

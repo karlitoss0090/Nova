@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOVA — AI Assistant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <style>
+    /* ── Reset & root vars ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-0:   #02070d;
+      --bg-1:   #060f1a;
+      --bg-2:   #0b1a2a;
+      --bg-3:   #112233;
+      --cyan:   #00d4ff;
+      --cyan-d: #0099cc;
+      --cyan-g: rgba(0,212,255,0.08);
+      --red:    #ff4a4a;
+      --red-d:  #cc2222;
+      --gold:   #ffa500;
+      --text:   #d0e8f8;
+      --text-2: #6888a0;
+      --border: rgba(0,212,255,0.18);
+      --glow-sm: 0 0 8px rgba(0,212,255,0.4);
+      --glow-md: 0 0 20px rgba(0,212,255,0.5), 0 0 40px rgba(0,212,255,0.2);
+      --glow-lg: 0 0 30px rgba(0,212,255,0.6), 0 0 60px rgba(0,212,255,0.3), 0 0 90px rgba(0,100,255,0.2);
+      --radius:  8px;
+      --sidebar-w: 260px;
+      --font-ui: 'Rajdhani', sans-serif;
+      --font-title: 'Orbitron', monospace;
+      --font-code: 'JetBrains Mono', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg-0); color: var(--text); font-family: var(--font-ui); font-size: 15px; overflow: hidden; }
+
+    /* ── Scrollbar ──────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-1); }
+    ::-webkit-scrollbar-thumb { background: var(--cyan-d); border-radius: 3px; }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    #app { display: flex; flex-direction: column; height: 100vh; }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    #topbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 0 20px; height: 56px; flex-shrink: 0;
+      background: var(--bg-1);
+      border-bottom: 1px solid var(--border);
+      position: relative; z-index: 10;
+    }
+    #topbar::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 1px; background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.5;
+    }
+
+    /* Arc reactor */
+    .arc-reactor {
+      width: 32px; height: 32px; flex-shrink: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%,
+        #ffffff 0%, #aaeeff 20%, #00aaff 45%, #0044cc 65%, transparent 80%);
+      box-shadow: var(--glow-md);
+      animation: reactor 3s ease-in-out infinite;
+      cursor: pointer;
+    }
+    @keyframes reactor {
+      0%,100% { box-shadow: var(--glow-md); }
+      50%      { box-shadow: var(--glow-lg); transform: scale(1.05); }
+    }
+
+    #nova-title {
+      font-family: var(--font-title); font-size: 22px; font-weight: 900;
+      letter-spacing: 6px; color: var(--cyan);
+      text-shadow: var(--glow-sm);
+    }
+    #nova-subtitle {
+      font-size: 11px; color: var(--text-2); letter-spacing: 2px;
+      text-transform: uppercase; margin-top: -2px;
+    }
+
+    #topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--red);
+      transition: background 0.4s;
+    }
+    .status-dot.connected { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+
+    #status-label { font-size: 11px; color: var(--text-2); letter-spacing: 1px; }
+
+    .icon-btn {
+      background: none; border: 1px solid var(--border); border-radius: var(--radius);
+      color: var(--text-2); cursor: pointer; padding: 6px 10px; font-size: 14px;
+      transition: all 0.2s; font-family: var(--font-ui);
+    }
+    .icon-btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-sm); }
+    .icon-btn.active { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-sm); }
+
+    /* ── Main content area ──────────────────────────────────────────── */
+    #content { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--bg-1);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      transition: transform 0.3s ease;
+    }
+    #sidebar-header {
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #sidebar-header span { font-size: 11px; letter-spacing: 2px; color: var(--text-2); text-transform: uppercase; }
+
+    #new-chat-btn {
+      background: linear-gradient(135deg, var(--cyan-d), #0044aa);
+      border: none; border-radius: var(--radius); color: #fff;
+      cursor: pointer; padding: 6px 12px; font-size: 12px;
+      font-family: var(--font-ui); letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    #new-chat-btn:hover { box-shadow: var(--glow-sm); transform: translateY(-1px); }
+
+    #sessions-list { flex: 1; overflow-y: auto; padding: 8px; }
+
+    .session-item {
+      padding: 10px 12px; border-radius: var(--radius);
+      cursor: pointer; border: 1px solid transparent;
+      transition: all 0.2s; margin-bottom: 4px;
+    }
+    .session-item:hover { background: var(--cyan-g); border-color: var(--border); }
+    .session-item.active { background: var(--cyan-g); border-color: var(--cyan); box-shadow: var(--glow-sm); }
+    .session-title { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .session-meta { font-size: 11px; color: var(--text-2); margin-top: 3px; }
+
+    /* ── Chat panel ──────────────────────────────────────────────────── */
+    #chat-panel {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden;
+      position: relative;
+    }
+
+    /* Scanline effect */
+    #chat-panel::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,20,40,0.03) 2px, rgba(0,20,40,0.03) 4px);
+      pointer-events: none; z-index: 0;
+    }
+
+    #messages {
+      flex: 1; overflow-y: auto; padding: 20px;
+      display: flex; flex-direction: column; gap: 16px;
+      position: relative; z-index: 1;
+    }
+
+    /* ── Messages ────────────────────────────────────────────────────── */
+    .msg { display: flex; gap: 12px; animation: msgIn 0.25s ease-out; max-width: 820px; }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg.assistant { align-self: flex-start; }
+
+    .msg-avatar {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-family: var(--font-title);
+      position: relative;
+    }
+    @keyframes speaking-pulse {
+      0%, 100% { transform: scale(0.65); opacity: 0.45; }
+      50%       { transform: scale(1.0);  opacity: 1;    box-shadow: 0 0 7px var(--cyan); }
+    }
+    .msg.assistant .msg-avatar.speaking::after {
+      content: ''; position: absolute; bottom: -1px; right: -1px;
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--cyan); border: 2px solid var(--bg-1);
+      animation: speaking-pulse 1.1s ease-in-out infinite;
+    }
+    .msg.user .msg-avatar {
+      background: linear-gradient(135deg, #ff4a4a, #cc0022);
+      box-shadow: 0 0 10px rgba(255,74,74,0.4);
+      color: #fff; font-size: 13px; font-weight: 700;
+    }
+    .msg.assistant .msg-avatar {
+      background: linear-gradient(135deg, #0044cc, #00aaff);
+      box-shadow: 0 0 10px rgba(0,170,255,0.5);
+    }
+
+    .msg-content { flex: 1; }
+
+    .msg-header {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+    }
+    .msg-name { font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+    .msg.user .msg-name { color: var(--red); }
+    .msg.assistant .msg-name { color: var(--cyan); }
+    .msg-time { font-size: 11px; color: var(--text-2); }
+    .msg-lang {
+      font-size: 10px; padding: 1px 5px; border-radius: 3px;
+      background: rgba(0,212,255,0.1); color: var(--cyan); letter-spacing: 1px;
+    }
+
+    .msg-bubble {
+      padding: 12px 16px; border-radius: 12px;
+      line-height: 1.7; font-size: 15px; color: var(--text);
+      word-break: break-word;
+    }
+    .msg.user .msg-bubble {
+      background: rgba(255,74,74,0.08);
+      border: 1px solid rgba(255,74,74,0.25);
+      border-top-right-radius: 3px;
+    }
+    .msg.assistant .msg-bubble {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-top-left-radius: 3px;
+    }
+
+    /* Markdown-ish styling inside bubbles */
+    .msg-bubble code {
+      font-family: var(--font-code); font-size: 13px;
+      background: rgba(0,212,255,0.1); color: var(--cyan);
+      padding: 1px 5px; border-radius: 4px;
+    }
+    .msg-bubble pre {
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px; overflow-x: auto;
+      margin: 8px 0;
+    }
+    .msg-bubble pre code { background: none; padding: 0; }
+
+    /* TTS play button */
+    .play-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-2); font-size: 14px; padding: 2px 6px;
+      border-radius: 4px; transition: all 0.2s; margin-left: 4px;
+    }
+    .play-btn:hover { color: var(--cyan); }
+
+    /* Typing indicator */
+    #typing {
+      display: none; align-items: center; gap: 12px;
+      padding: 0 20px; margin-bottom: 10px;
+      position: relative; z-index: 1;
+    }
+    #typing.visible { display: flex; }
+    .typing-dots { display: flex; gap: 5px; }
+    .typing-dots span {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--cyan); opacity: 0.4;
+      animation: dot-pulse 1.4s ease-in-out infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dot-pulse {
+      0%,80%,100% { opacity: 0.2; transform: scale(0.85); }
+      40%          { opacity: 1;   transform: scale(1); }
+    }
+    #typing-label { font-size: 12px; color: var(--text-2); letter-spacing: 1px; }
+
+    /* ── Input bar ───────────────────────────────────────────────────── */
+    #input-bar {
+      padding: 14px 20px; background: var(--bg-1);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: flex-end; gap: 10px;
+      position: relative; z-index: 5;
+    }
+    #input-bar::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 1px; background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.4;
+    }
+
+    #msg-input {
+      flex: 1; background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text); font-family: var(--font-ui);
+      font-size: 15px; padding: 10px 14px; resize: none;
+      outline: none; min-height: 44px; max-height: 150px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      line-height: 1.5;
+    }
+    #msg-input:focus { border-color: var(--cyan); box-shadow: var(--glow-sm); }
+    #msg-input::placeholder { color: var(--text-2); }
+
+    .input-btn {
+      width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--bg-2); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; font-size: 18px;
+      flex-shrink: 0; transition: all 0.2s; color: var(--text-2);
+    }
+    .input-btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-sm); }
+    .input-btn.primary {
+      background: linear-gradient(135deg, var(--cyan-d), #0044aa);
+      border-color: var(--cyan); color: #fff;
+    }
+    .input-btn.primary:hover { box-shadow: var(--glow-md); transform: translateY(-1px); }
+    .input-btn.primary:disabled { opacity: 0.4; transform: none; cursor: not-allowed; }
+    .input-btn.recording {
+      background: linear-gradient(135deg, var(--red-d), #880000);
+      border-color: var(--red); color: #fff;
+      animation: rec-pulse 0.8s ease-in-out infinite;
+    }
+    @keyframes rec-pulse {
+      0%,100% { box-shadow: 0 0 10px rgba(255,74,74,0.4); }
+      50%      { box-shadow: 0 0 25px rgba(255,74,74,0.8); }
+    }
+
+    /* ── Welcome screen ──────────────────────────────────────────────── */
+    #welcome {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      flex: 1; gap: 24px; padding: 40px; text-align: center;
+      animation: fadeIn 0.6s ease-out;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .welcome-arc {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, #ffffff 0%, #aaeeff 15%, #00aaff 40%, #0033cc 65%, transparent 75%);
+      box-shadow: var(--glow-lg); animation: reactor 3s ease-in-out infinite;
+    }
+    .welcome-title { font-family: var(--font-title); font-size: 40px; font-weight: 900; color: var(--cyan); text-shadow: var(--glow-md); letter-spacing: 8px; }
+    .welcome-sub { font-size: 14px; color: var(--text-2); letter-spacing: 3px; text-transform: uppercase; }
+    .welcome-hints { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+    .hint-chip {
+      background: var(--bg-2); border: 1px solid var(--border); border-radius: 20px;
+      padding: 8px 16px; font-size: 13px; color: var(--text-2); cursor: pointer;
+      transition: all 0.2s;
+    }
+    .hint-chip:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: var(--glow-sm); }
+
+    /* ── Toast notifications ─────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 80px; right: 20px; padding: 10px 18px;
+      background: var(--bg-3); border: 1px solid var(--border);
+      border-radius: var(--radius); font-size: 13px; color: var(--text);
+      opacity: 0; transform: translateY(10px); transition: all 0.3s;
+      pointer-events: none; z-index: 100; max-width: 300px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.error { border-color: var(--red); color: var(--red); }
+
+    /* ── Debug overlay (?debug=1) ───────────────────────────────────── */
+    #debug-overlay {
+      position: fixed; bottom: 16px; right: 16px; z-index: 9999;
+      pointer-events: none;
+    }
+    .debug-pill {
+      background: rgba(0,0,0,0.88); border: 1px solid rgba(0,220,220,0.25);
+      border-radius: 8px; padding: 8px 12px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--cyan);
+      line-height: 1.85; white-space: nowrap;
+    }
+    .debug-row { display: flex; gap: 8px; }
+    .debug-key { opacity: 0.55; user-select: none; }
+
+    /* ── Continuous listening status ─────────────────────────────────── */
+    #listen-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text-2);
+    }
+    .listen-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #00e676; flex-shrink: 0; transition: background 0.3s;
+    }
+    .listen-dot.pulse  { animation: listen-pulse 1.4s ease-in-out infinite; }
+    .listen-dot.active { background: var(--cyan); animation: none; }
+    @keyframes listen-pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.75); }
+      50%       { opacity: 1;   transform: scale(1);   box-shadow: 0 0 6px #00e676; }
+    }
+    .listen-label { font-size: 11px; white-space: nowrap; letter-spacing: 0.5px; }
+    /* Conversation mode: cyan dot replaces green */
+    #listen-status.conv .listen-dot       { background: var(--cyan); }
+    #listen-status.conv .listen-dot.pulse { animation: listen-pulse-cyan 1.4s ease-in-out infinite; }
+    @keyframes listen-pulse-cyan {
+      0%, 100% { opacity: 0.4; transform: scale(0.75); }
+      50%       { opacity: 1;   transform: scale(1);   box-shadow: 0 0 6px var(--cyan); }
+    }
+    #conv-timer {
+      font-family: var(--font-code); font-size: 10px;
+      opacity: 0.55; display: none; letter-spacing: 0;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      #sidebar { position: absolute; left: -100%; z-index: 20; height: 100%; }
+      #sidebar.open { left: 0; transform: translateX(0); }
+      .msg { max-width: 100%; }
+      #nova-title { font-size: 18px; letter-spacing: 4px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Top bar -->
+  <nav id="topbar">
+    <div class="arc-reactor" id="arc-btn" title="NOVA System Status"></div>
+    <div>
+      <div id="nova-title">NOVA</div>
+      <div id="nova-subtitle">Personal AI Assistant</div>
+    </div>
+    <div id="topbar-right">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-label">Connecting...</span>
+      <div id="listen-status" style="display:none">
+        <span id="listen-dot" class="listen-dot pulse"></span>
+        <span id="listen-label" class="listen-label">👂 Listening...</span>
+        <span id="conv-timer"></span>
+      </div>
+      <button class="icon-btn" id="continuous-btn" title="Écoute continue">👂</button>
+      <button class="icon-btn active" id="voice-toggle-btn" title="Auto-voix activé">🔊</button>
+      <button class="icon-btn" id="sidebar-toggle-btn" title="Sessions">☰</button>
+    </div>
+  </nav>
+
+  <!-- Content -->
+  <div id="content">
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div id="sidebar-header">
+        <span>Sessions</span>
+        <button id="new-chat-btn">+ New</button>
+      </div>
+      <div id="sessions-list"></div>
+    </aside>
+
+    <!-- Chat panel -->
+    <div id="chat-panel">
+      <!-- Welcome screen (shown when no messages) -->
+      <div id="welcome">
+        <div class="welcome-arc"></div>
+        <div class="welcome-title">NOVA</div>
+        <div class="welcome-sub">Système IA personnel de Karl</div>
+        <div class="welcome-hints">
+          <div class="hint-chip" data-text="C'est quoi mon stack actuel?">🛠 Mon stack tech</div>
+          <div class="hint-chip" data-text="Aide-moi avec un problème Python">🐍 Aide Python</div>
+          <div class="hint-chip" data-text="Qu'est-ce que j'ai fait comme projets?">📁 Mes projets</div>
+          <div class="hint-chip" data-text="Explique-moi Docker en bref">🐳 Docker</div>
+          <div class="hint-chip" data-text="Help me with a SQL query">🗄 SQL Help</div>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="messages" style="display:none;"></div>
+
+      <!-- Typing indicator -->
+      <div id="typing">
+        <div class="msg-avatar" style="background: linear-gradient(135deg,#0044cc,#00aaff); width:34px; height:34px; border-radius:50%; flex-shrink:0;"></div>
+        <div>
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:5px;letter-spacing:1px;">NOVA • Processing...</div>
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div id="input-bar">
+        <button class="input-btn" id="mic-btn" title="Enregistrer un message vocal">🎤</button>
+        <textarea
+          id="msg-input"
+          placeholder="Message NOVA... (Enter pour envoyer)"
+          rows="1"
+          autocomplete="off"
+          spellcheck="true"
+        ></textarea>
+        <button class="input-btn primary" id="send-btn" title="Envoyer (Enter)">➤</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="debug-overlay" style="display:none">
+  <div class="debug-pill">
+    <div class="debug-row"><span class="debug-key">LLM&nbsp; </span><span id="d-llm">—</span></div>
+    <div class="debug-row"><span class="debug-key">TTS&nbsp; </span><span id="d-tts">—</span></div>
+    <div class="debug-row"><span class="debug-key">Play </span><span id="d-play">—</span></div>
+    <div class="debug-row"><span class="debug-key">⚡&nbsp;&nbsp;&nbsp; </span><span id="d-speed">—</span></div>
+  </div>
+</div>
+
+<script>
+/* ── State ──────────────────────────────────────────────────────────────── */
+let state = {
+  sessionId: null,
+  isStreaming: false,
+  isRecording: false,
+  mediaRecorder: null,
+  audioChunks: [],
+  currentAudio: null,   // AudioBufferSourceNode currently playing
+  voiceMode: true,      // auto-play TTS after each NOVA response
+  wordTick: null,       // setInterval ID for word-by-word text animation
+};
+
+/* ── Debug overlay (?debug=1 enables) ───────────────────────────────────── */
+const DEBUG = new URLSearchParams(location.search).has('debug');
+function debugSet(key, val) {
+  if (!DEBUG) return;
+  const el = document.getElementById(`d-${key}`);
+  if (el) el.textContent = val;
+}
+function debugReset() { ['llm','tts','play','speed'].forEach(k => debugSet(k, '—')); }
+
+/* ── DOM refs ────────────────────────────────────────────────────────────── */
+const $messages        = document.getElementById('messages');
+const $welcome         = document.getElementById('welcome');
+const $input           = document.getElementById('msg-input');
+const $sendBtn         = document.getElementById('send-btn');
+const $micBtn          = document.getElementById('mic-btn');
+const $typing          = document.getElementById('typing');
+const $sessions        = document.getElementById('sessions-list');
+const $statusDot       = document.getElementById('status-dot');
+const $statusLbl       = document.getElementById('status-label');
+const $toast           = document.getElementById('toast');
+const $continuousBtn   = document.getElementById('continuous-btn');
+
+/* ── Init ────────────────────────────────────────────────────────────────── */
+async function init() {
+  if (DEBUG) document.getElementById('debug-overlay').style.display = 'block';
+  await checkHealth();
+  await loadSessions();
+  setupHints();
+  setupInputAutoResize();
+  if (continuousListener.supported) {
+    const ok = await continuousListener.start();
+    if (ok) $continuousBtn.classList.add('active');
+  }
+}
+
+async function checkHealth() {
+  try {
+    const r = await fetch('/health');
+    const d = await r.json();
+    const ok = d.ollama?.available;
+    $statusDot.classList.toggle('connected', ok);
+    $statusLbl.textContent = ok ? `${d.ollama.model} • Ready` : 'Ollama offline';
+  } catch {
+    $statusDot.classList.remove('connected');
+    $statusLbl.textContent = 'Disconnected';
+  }
+}
+
+/* ── Sessions ────────────────────────────────────────────────────────────── */
+async function loadSessions() {
+  try {
+    const r = await fetch('/memory/sessions');
+    const d = await r.json();
+    renderSessions(d.sessions || []);
+  } catch { /* ignore */ }
+}
+
+function renderSessions(sessions) {
+  $sessions.innerHTML = '';
+  sessions.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'session-item' + (s.session_id === state.sessionId ? ' active' : '');
+    el.dataset.id = s.session_id;
+    const date = new Date(s.updated_at).toLocaleDateString('fr-CA', { month:'short', day:'numeric' });
+    el.innerHTML = `
+      <div class="session-title">${escHtml(s.title || 'Conversation')}</div>
+      <div class="session-meta">${date} · ${s.message_count} msgs</div>
+    `;
+    el.addEventListener('click', () => loadSession(s.session_id));
+    $sessions.appendChild(el);
+  });
+}
+
+async function loadSession(sessionId) {
+  state.sessionId = sessionId;
+  document.querySelectorAll('.session-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === sessionId)
+  );
+
+  try {
+    const r = await fetch(`/memory/history/${sessionId}`);
+    const d = await r.json();
+    const msgs = d.messages || [];
+
+    $messages.innerHTML = '';
+    showMessages();
+
+    msgs.forEach(m => appendMessage(m.role, m.content, m.language, new Date(m.created_at), false));
+    scrollBottom();
+  } catch (e) {
+    showToast('Erreur chargement session', true);
+  }
+}
+
+function newChat() {
+  state.sessionId = null;
+  $messages.innerHTML = '';
+  hideMessages();
+  document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+}
+
+/* ── Sending messages ────────────────────────────────────────────────────── */
+async function sendMessage(text) {
+  text = (text || $input.value).trim();
+  if (!text || state.isStreaming) return;
+
+  unlockAudio(); // resume AudioContext while we're inside a user gesture
+  $input.value = '';
+  resizeInput();
+  state.isStreaming = true;
+  $sendBtn.disabled = true;
+  if (DEBUG) debugReset();
+  if (state.wordTick) { clearInterval(state.wordTick); state.wordTick = null; }
+  audioQueue.reset(); // discard any audio from the previous response
+
+  showMessages();
+  appendMessage('user', text, detectLangUI(text));
+  scrollBottom();
+
+  // Create assistant bubble placeholder
+  const bubbleId = `bubble-${Date.now()}`;
+  appendMessage('assistant', '', 'en', null, true, bubbleId);
+  showTyping();
+
+  let accumulated    = '';
+  let responseLang   = 'en';
+  let ttsScheduled   = false; // true once enqueueTTS is called; gates hideTyping in finally
+  // Latency timestamps (populated only when DEBUG=true)
+  const tSent        = DEBUG ? performance.now() : 0;
+  let tFirstToken    = 0, tFetchStart = 0, tTTSDone = 0;
+
+  try {
+    const resp = await fetch('/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, session_id: state.sessionId }),
+    });
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const evt = JSON.parse(line.slice(6));
+
+        if (evt.type === 'meta') {
+          state.sessionId = evt.session_id;
+        } else if (evt.type === 'token') {
+          if (!accumulated && DEBUG) {
+            tFirstToken = performance.now();
+            debugSet('llm', `${Math.round(tFirstToken - tSent)}ms`);
+          }
+          accumulated += evt.content;
+          if (!state.voiceMode) {
+            // Voice off: stream text to screen immediately
+            hideTyping();
+            updateBubble(bubbleId, accumulated);
+            scrollBottom();
+          }
+          // Voice on: buffer silently — text will animate in sync with audio
+        } else if (evt.type === 'done') {
+          responseLang = evt.language;
+          setBubbleLang(bubbleId, responseLang);
+          if (!state.voiceMode) {
+            scrollBottom(); // final scroll for voice-off streaming
+          } else {
+            // Voice-first: LLM done, now generate TTS for the complete buffered text.
+            const fullText = stripMarkdown(accumulated.trim());
+            if (fullText.length > 1) {
+              ttsScheduled = true;
+              tFetchStart  = DEBUG ? performance.now() : 0;
+              const words  = accumulated.trim().split(/\s+/).filter(w => w.length > 0);
+              enqueueTTS(
+                fullText, responseLang, 0,
+                // onStart: fires the moment audio begins playing
+                (audioDuration) => {
+                  if (DEBUG) debugSet('play', `${Math.round(performance.now() - tSent)}ms`);
+                  hideTyping();
+                  if (audioDuration === null) {
+                    // TTS failed — reveal text immediately as fallback
+                    updateBubble(bubbleId, accumulated.trim());
+                    scrollBottom();
+                    return;
+                  }
+                  showSpeakingIndicator(bubbleId);
+                  // Distribute words evenly across the audio duration
+                  const msPerWord = (audioDuration * 1000) / Math.max(words.length, 1);
+                  let wordIdx = 0;
+                  state.wordTick = setInterval(() => {
+                    wordIdx = Math.min(wordIdx + 1, words.length);
+                    updateBubble(bubbleId, words.slice(0, wordIdx).join(' '));
+                    scrollBottom();
+                    if (wordIdx >= words.length) {
+                      clearInterval(state.wordTick); state.wordTick = null;
+                    }
+                  }, Math.max(msPerWord, 16));
+                  audioQueue.whenDone(() => {
+                    if (state.wordTick) { clearInterval(state.wordTick); state.wordTick = null; }
+                    updateBubble(bubbleId, accumulated.trim()); // switch to full markdown render
+                    hideSpeakingIndicator(bubbleId);
+                  });
+                },
+                // onDecode: fires when audio buffer is ready (Kokoro generation complete)
+                () => {
+                  if (DEBUG) {
+                    tTTSDone = performance.now();
+                    debugSet('tts',   `${Math.round(tTTSDone - tSent)}ms`);
+                    debugSet('speed', `${Math.round(fullText.length * 1000 / (tTTSDone - tFetchStart))} c/s`);
+                  }
+                }
+              );
+            } else {
+              hideTyping();
+              updateBubble(bubbleId, accumulated.trim());
+              scrollBottom();
+            }
+          }
+        } else if (evt.type === 'error') {
+          throw new Error(evt.message);
+        }
+      }
+    }
+
+    await loadSessions();
+
+  } catch (e) {
+    updateBubble(bubbleId, `❌ Erreur: ${e.message}`);
+    showToast(e.message, true);
+  } finally {
+    // In voice-first mode, hideTyping is deferred to the onStart callback so the
+    // typing indicator stays visible during Kokoro generation (1-3s after SSE ends).
+    if (!ttsScheduled) hideTyping();
+    state.isStreaming = false;
+    $sendBtn.disabled = false;
+  }
+}
+
+/* ── Message rendering ───────────────────────────────────────────────────── */
+function appendMessage(role, content, lang = 'en', time = null, placeholder = false, id = null) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+  if (id) el.id = id;
+
+  const now = time || new Date();
+  const timeStr = now.toLocaleTimeString('fr-CA', { hour:'2-digit', minute:'2-digit' });
+  const label = role === 'user' ? 'Karl' : 'NOVA';
+  const avatar = role === 'user' ? 'K' : '◉';
+
+  el.innerHTML = `
+    <div class="msg-avatar">${avatar}</div>
+    <div class="msg-content">
+      <div class="msg-header">
+        <span class="msg-name">${label}</span>
+        <span class="msg-time">${timeStr}</span>
+        <span class="msg-lang">${lang.toUpperCase()}</span>
+        ${role === 'assistant' ? `<button class="play-btn" title="Écouter" onclick="speakText(this)">🔊</button>` : ''}
+      </div>
+      <div class="msg-bubble">${placeholder ? '<span class="cursor">▌</span>' : renderMarkdown(content)}</div>
+    </div>
+  `;
+  $messages.appendChild(el);
+}
+
+function updateBubble(id, content) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.querySelector('.msg-bubble').innerHTML = renderMarkdown(content) + '<span class="cursor" style="opacity:0.6;animation:dot-pulse 0.8s infinite">▌</span>';
+}
+
+function setBubbleLang(id, lang) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const langEl = el.querySelector('.msg-lang');
+  if (langEl) langEl.textContent = lang.toUpperCase();
+  const bubble = el.querySelector('.msg-bubble');
+  if (bubble) {
+    bubble.innerHTML = bubble.innerHTML.replace(/<span class="cursor"[^>]*>▌<\/span>/, '');
+  }
+}
+
+/* ── Very minimal markdown renderer ─────────────────────────────────────── */
+function renderMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // code blocks
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    // inline code
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    // bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // italic
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    // newlines
+    .replace(/\n/g, '<br>');
+}
+
+/* ── Audio — Web Audio API ───────────────────────────────────────────────────
+ *
+ * new Audio().play() from async code is blocked by the browser's autoplay
+ * policy. AudioContext.decodeAudioData + BufferSource.start() works from any
+ * async callback as long as the context was resumed during a user gesture.
+ * We resume it on the very first send/enter, which always precedes playback.
+ *
+ * ─────────────────────────────────────────────────────────────────────────── */
+let _actx = null;
+
+function getAudioCtx() {
+  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_actx.state === 'suspended') _actx.resume();
+  return _actx;
+}
+
+// Call once per user gesture that will be followed by audio playback.
+function unlockAudio() { getAudioCtx(); }
+
+/* ── AudioQueue — serialised sentence-level TTS playback ─────────────────────
+ *
+ * Sentences are fetched concurrently (fetch for S2 starts while S1 plays),
+ * but playback is strictly sequential.  A generation counter makes reset()
+ * instant: incrementing it invalidates all in-flight promises so they silently
+ * drop without needing explicit cancellation of every pending fetch.
+ *
+ * ─────────────────────────────────────────────────────────────────────────── */
+class AudioQueue {
+  constructor() {
+    this._tail  = Promise.resolve(); // serialised playback chain
+    this._active = null;             // currently playing BufferSourceNode
+    this._gen   = 0;                 // incremented on reset() to invalidate old work
+  }
+
+  // Push a fetch+decode promise.  Playback waits for the previous segment to end.
+  // onStart(duration|null): fires when audio starts (null = decode failed → show text fallback).
+  push(decodePromise, delayMs = 0, onStart = null) {
+    const gen = this._gen;
+    this._tail = this._tail.then(async () => {
+      if (this._gen !== gen) return;
+      if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs));
+      if (this._gen !== gen) return;
+      let buf;
+      try { buf = await decodePromise; } catch {
+        if (onStart) onStart(null);  // signal failure so caller can reveal text
+        return;
+      }
+      if (this._gen !== gen || !buf) return;
+      await this._play(buf, gen, onStart);
+    });
+  }
+
+  // Stop everything and discard queued segments.
+  reset() {
+    this._gen++;
+    if (this._active) {
+      try { this._active.stop(); } catch {}
+      this._active = null;
+      state.currentAudio = null;
+    }
+    this._tail = Promise.resolve();
+  }
+
+  // Call cb when the current tail resolves (all queued audio played or reset).
+  // cb is suppressed if reset() fires first (generation mismatch).
+  whenDone(cb) {
+    const gen = this._gen;
+    this._tail.then(() => { if (this._gen === gen) cb(); });
+  }
+
+  _play(decoded, gen, onStart = null) {
+    return new Promise(resolve => {
+      if (this._gen !== gen) { resolve(); return; }
+      const ctx = getAudioCtx();
+      const src = ctx.createBufferSource();
+      src.buffer = decoded;
+      src.connect(ctx.destination);
+      this._active    = src;
+      state.currentAudio = src;
+      src.onended = () => {
+        if (this._active === src) { this._active = null; state.currentAudio = null; }
+        resolve();
+      };
+      src.start(0);
+      if (onStart) onStart(decoded.duration); // fires right as audio starts; duration in seconds
+    });
+  }
+}
+
+const audioQueue = new AudioQueue();
+
+/* ── Sentence splitter ───────────────────────────────────────────────────────
+ * Extracts all complete sentences from a buffer (ends with . ? ! + whitespace).
+ * Returns { sentences[], remainder } — remainder goes back into the buffer.
+ * ─────────────────────────────────────────────────────────────────────────── */
+function popSentences(buffer) {
+  const sentences = [];
+  // Capture the terminal punctuation as group 1 so we can apply length rules.
+  const re = /[^]*?([.!?])(?=\s)/g;
+  let last = 0, segStart = 0, m;
+  while ((m = re.exec(buffer)) !== null) {
+    const punct = m[1];
+    const end   = m.index + m[0].length;
+    // Candidate includes any unflushed text from prior short-period sentences.
+    const seg   = buffer.slice(segStart, end).trim();
+    // ? and ! always flush; . only flushes when the accumulated segment is 80+ chars.
+    if (seg && (punct !== '.' || seg.length >= 80)) {
+      sentences.push(seg);
+      last     = end;
+      segStart = end;
+    }
+    // Short period: segStart stays put so the next match absorbs this text.
+  }
+  return { sentences, remainder: buffer.slice(last) };
+}
+
+/* Strip markdown so Kokoro/Piper doesn't read asterisks aloud. */
+function stripMarkdown(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, '. ')          // code blocks → pause
+    .replace(/`([^`]+)`/g, '$1')               // inline code → plain
+    .replace(/\*\*([^*]+)\*\*/g, '$1')         // bold
+    .replace(/\*([^*]+)\*/g, '$1')             // italic
+    .replace(/^#{1,6}\s*/gm, '')               // headings
+    .replace(/^[-*+]\s+/gm, '')                // list bullets
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // links → label
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* Fire fetch+decode immediately; push the resulting Promise into the queue.
+ * onStart(duration|null): fires when audio starts (or null on failure).
+ * onDecode(): fires when decodeAudioData resolves (TTS generation complete). */
+function enqueueTTS(text, lang, delayMs = 0, onStart = null, onDecode = null) {
+  const decodePromise = fetch('/speak', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, language: lang }),
+  }).then(r => {
+    if (!r.ok) throw new Error(`TTS ${r.status}`);
+    return r.arrayBuffer();
+  }).then(buf => {
+    const p = getAudioCtx().decodeAudioData(buf);
+    if (onDecode) p.then(() => onDecode());
+    return p;
+  });
+
+  audioQueue.push(decodePromise, delayMs, onStart);
+}
+
+function showSpeakingIndicator(bubbleId) {
+  document.getElementById(bubbleId)?.querySelector('.msg-avatar')?.classList.add('speaking');
+}
+
+function hideSpeakingIndicator(bubbleId) {
+  document.getElementById(bubbleId)?.querySelector('.msg-avatar')?.classList.remove('speaking');
+}
+
+function stopCurrentAudio() {
+  if (state.wordTick) { clearInterval(state.wordTick); state.wordTick = null; }
+  audioQueue.reset();
+  if (state.currentAudio) {
+    try { state.currentAudio.stop(); } catch {}
+    state.currentAudio = null;
+  }
+}
+
+async function playSpeech(text, lang, { btn = null, silent = false } = {}) {
+  stopCurrentAudio(); // also resets the audioQueue
+  if (btn) btn.textContent = '⏳';
+
+  try {
+    const r = await fetch('/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, language: lang }),
+    });
+    if (!r.ok) throw new Error(`TTS ${r.status}`);
+
+    const arrayBuffer = await r.arrayBuffer();
+    const ctx = getAudioCtx();
+    const decoded = await ctx.decodeAudioData(arrayBuffer);
+
+    const src = ctx.createBufferSource();
+    src.buffer = decoded;
+    src.connect(ctx.destination);
+    src.start(0);
+    state.currentAudio = src;
+
+    src.onended = () => {
+      if (state.currentAudio === src) state.currentAudio = null;
+      if (btn) btn.textContent = '🔊';
+    };
+
+    if (btn) btn.textContent = '🔇';
+  } catch (e) {
+    if (btn) btn.textContent = '🔊';
+    if (!silent) showToast('TTS non disponible — voir NOVA_DOC.md', true);
+    console.warn('TTS:', e);
+  }
+}
+
+/* Manual 🔊 button on each message bubble */
+async function speakText(btn) {
+  // Second click on the active button → stop
+  if (btn.textContent === '🔇') {
+    stopCurrentAudio();
+    btn.textContent = '🔊';
+    return;
+  }
+  // Reset any other active play buttons
+  document.querySelectorAll('.play-btn').forEach(b => { if (b !== btn) b.textContent = '🔊'; });
+
+  const bubble = btn.closest('.msg-content').querySelector('.msg-bubble');
+  const langEl  = btn.closest('.msg-header').querySelector('.msg-lang');
+  const text = bubble.textContent.trim();
+  const lang = (langEl?.textContent || 'EN').toLowerCase();
+
+  await playSpeech(text, lang, { btn });
+}
+
+/* ── STT / Voice recording ───────────────────────────────────────────────── */
+async function toggleRecording() {
+  if (state.isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    state.audioChunks = [];
+    state.mediaRecorder = new MediaRecorder(stream);
+    state.mediaRecorder.ondataavailable = e => state.audioChunks.push(e.data);
+    state.mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      $micBtn.className = 'input-btn';
+      $micBtn.textContent = '⏳';
+
+      const blob = new Blob(state.audioChunks, { type: 'audio/webm' });
+      const form = new FormData();
+      form.append('audio', blob, 'recording.webm');
+
+      try {
+        const r = await fetch('/transcribe', { method: 'POST', body: form });
+        if (!r.ok) throw new Error('Transcription failed');
+        const d = await r.json();
+        $input.value = d.text;
+        resizeInput();
+        $micBtn.textContent = '🎤';
+        if (d.text) sendMessage(d.text);
+      } catch (e) {
+        $micBtn.textContent = '🎤';
+        showToast('STT non disponible — voir NOVA_DOC.md', true);
+      }
+    };
+    state.mediaRecorder.start();
+    state.isRecording = true;
+    $micBtn.className = 'input-btn recording';
+    $micBtn.textContent = '⏹';
+  } catch (e) {
+    showToast('Microphone non autorisé', true);
+  }
+}
+
+function stopRecording() {
+  state.isRecording = false;
+  state.mediaRecorder?.stop();
+}
+
+/* ── UI helpers ──────────────────────────────────────────────────────────── */
+function showMessages() {
+  $welcome.style.display = 'none';
+  $messages.style.display = 'flex';
+}
+function hideMessages() {
+  $welcome.style.display = 'flex';
+  $messages.style.display = 'none';
+}
+function showTyping() { $typing.classList.add('visible'); }
+function hideTyping()  { $typing.classList.remove('visible'); }
+function scrollBottom() { $messages.scrollTop = $messages.scrollHeight; }
+
+function showToast(msg, isError = false) {
+  $toast.textContent = msg;
+  $toast.className = 'show' + (isError ? ' error' : '');
+  setTimeout(() => { $toast.className = ''; }, 3500);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setupHints() {
+  document.querySelectorAll('.hint-chip').forEach(el => {
+    el.addEventListener('click', () => sendMessage(el.dataset.text));
+  });
+}
+
+function setupInputAutoResize() {
+  $input.addEventListener('input', resizeInput);
+}
+function resizeInput() {
+  $input.style.height = 'auto';
+  $input.style.height = Math.min($input.scrollHeight, 150) + 'px';
+}
+
+/* Very basic client-side language hint for the avatar area */
+function detectLangUI(text) {
+  const fr = ['je ', 'tu ', 'c\'est', 'bonjour', 'salut', 'merci', 'ça ', 'pas ', 'quoi', 'oui', 'non'];
+  const lower = text.toLowerCase();
+  return fr.some(w => lower.includes(w)) ? 'fr' : 'en';
+}
+
+/* ── Continuous listening — Phase 3 wake-word + Phase 4 conversation mode ───
+ *
+ * WAKE MODE  — SpeechRecognition watches for "hey jarvis" / "hey nova".
+ * On detection: beep → record first command → sendMessage → CONV MODE.
+ *
+ * CONV MODE  — After each NOVA response, listen immediately for next turn.
+ * No wake word needed. Exits on: explicit exit phrase | 15s silence |
+ * 10-minute max | toggle button.
+ *
+ * Interruption: user speaking during TTS playback cancels audio and records
+ * the interruption (requires 240ms sustained energy to avoid speaker bleed).
+ *
+ * ─────────────────────────────────────────────────────────────────────────── */
+class ContinuousListener {
+  constructor() {
+    this._recognition    = null;
+    this._active         = false;
+    this._busy           = false;
+    this._inConversation = false;
+    this._convStartMs    = 0;
+    this._convTimer      = null;
+    this._restartTimer   = null;
+  }
+
+  get supported() {
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+
+  isActive() { return this._active; }
+
+  async start() {
+    if (!this.supported) {
+      showToast('SpeechRecognition non supporté — utilise Chrome ou Safari', true);
+      return false;
+    }
+    this._active = true;
+    this._setStatus('listening');
+    this._startRecognition();
+    return true;
+  }
+
+  stop() {
+    this._active         = false;
+    this._busy           = false;
+    this._inConversation = false;
+    clearTimeout(this._restartTimer);
+    this._stopRecognition();
+    this._stopConvTimer();
+    stopCurrentAudio();
+    this._setStatus('idle');
+  }
+
+  // ── Wake-word recognition ──────────────────────────────────────────────────
+
+  _initRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const r  = new SR();
+    r.continuous      = true;
+    r.interimResults  = true;
+    r.maxAlternatives = 1;
+    // Leave r.lang unset — browser auto-detects, handles FR/EN bilingual
+
+    r.onresult = (event) => {
+      if (this._busy) return;
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript.toLowerCase();
+        if (this._isWakeWord(t)) { this._handleInteraction(); break; }
+      }
+    };
+
+    // SpeechRecognition auto-stops on silence — restart when not in an interaction
+    r.onend = () => {
+      if (this._active && !this._busy) {
+        this._restartTimer = setTimeout(() => {
+          if (this._active && !this._busy) try { r.start(); } catch {}
+        }, 120);
+      }
+    };
+
+    r.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      console.warn('SpeechRecognition:', event.error);
+    };
+
+    this._recognition = r;
+  }
+
+  _startRecognition() {
+    if (!this._recognition) this._initRecognition();
+    try { this._recognition.start(); } catch {}
+  }
+
+  _stopRecognition() {
+    try { this._recognition?.abort(); } catch {}
+  }
+
+  _isWakeWord(t) {
+    return t.includes('hey jarvis') || t.includes('hey nova')  ||
+           t.includes('hé jarvis')  || t.includes('hé nova')   ||
+           t.includes('ey jarvis')  || t.includes('ey nova')   ||
+           t.includes('ok nova')    || t.includes('ok jarvis');
+  }
+
+  _isExitIntent(t) {
+    const lo = t.toLowerCase();
+    return ['stop', 'arrête', 'arrêtes', 'goodbye', 'au revoir', "c'est tout",
+            'merci bye', "that's all", 'exit', 'quit', 'bonne nuit', 'bye bye',
+            'ciao', 'terminé', "fini pour aujourd'hui"].some(p => lo.includes(p));
+  }
+
+  // ── Audio helpers ──────────────────────────────────────────────────────────
+
+  _playBeep() {
+    try {
+      const ctx  = getAudioCtx();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 880;
+      const t = ctx.currentTime;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.01);
+      gain.gain.linearRampToValueAtTime(0, t + 0.18);
+      osc.start(t); osc.stop(t + 0.2);
+    } catch {}
+  }
+
+  // Waits for TTS queue to drain. If the user speaks during playback,
+  // cancels audio immediately and returns true (interrupted). The interrupt
+  // monitor requires 3 × 80ms consecutive chunks above threshold to avoid
+  // false positives from TTS speaker bleed.
+  _waitForAudioWithInterrupt() {
+    return new Promise(resolve => {
+      let done             = false;
+      let monitorStream    = null;
+      let monitorCtx       = null;
+      let monitorIv        = null;
+      let killIv           = null;
+      let consecutiveAbove = 0;
+
+      const finish = (interrupted) => {
+        if (done) return;
+        done = true;
+        if (killIv)    { clearInterval(killIv);    killIv = null; }
+        if (monitorIv) { clearInterval(monitorIv); monitorIv = null; }
+        if (monitorCtx)    { monitorCtx.close(); monitorCtx = null; }
+        if (monitorStream) { monitorStream.getTracks().forEach(t => t.stop()); monitorStream = null; }
+        resolve(interrupted);
+      };
+
+      // Natural end: audio queue drained
+      audioQueue.whenDone(() => finish(false));
+
+      // External kill: user toggled listener off (checked every 200ms)
+      killIv = setInterval(() => { if (!this._active) finish(false); }, 200);
+
+      // Interruption monitor: open mic, watch for sustained user speech energy
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        if (done) { stream.getTracks().forEach(t => t.stop()); return; }
+        monitorStream = stream;
+        monitorCtx    = new AudioContext();
+        const src     = monitorCtx.createMediaStreamSource(stream);
+        const analyser = monitorCtx.createAnalyser();
+        analyser.fftSize = 512;
+        src.connect(analyser);
+        const buf = new Uint8Array(analyser.frequencyBinCount);
+
+        // Higher threshold (16 vs. 8) to survive speaker bleed when using laptop audio
+        const INTERRUPT_THRESHOLD = 16;
+        const CONSECUTIVE_NEEDED  = 3;  // 3 × 80ms = 240ms sustained speech
+
+        monitorIv = setInterval(() => {
+          if (done) { clearInterval(monitorIv); return; }
+          analyser.getByteTimeDomainData(buf);
+          const rms = Math.sqrt(buf.reduce((s, v) => s + (v - 128) ** 2, 0) / buf.length);
+          if (rms > INTERRUPT_THRESHOLD) {
+            if (++consecutiveAbove >= CONSECUTIVE_NEEDED) {
+              stopCurrentAudio();
+              finish(true);
+            }
+          } else {
+            consecutiveAbove = 0;
+          }
+        }, 80);
+      }).catch(() => { /* no mic for interrupt monitor — natural end only */ });
+    });
+  }
+
+  // Records audio with VAD. Returns { blob, hasSpeech, timedOut }.
+  // presilenceTimeoutMs: how long to wait with NO speech before giving up.
+  // Aborts immediately if this._active becomes false.
+  _recordCommand({ maxMs = 10000, presilenceTimeoutMs = 10000 } = {}) {
+    return new Promise(async (resolve, reject) => {
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (e) { reject(e); return; }
+
+      const chunks  = [];
+      const rec     = new MediaRecorder(stream);
+      let hasSpeech = false;
+      let timedOut  = false;
+
+      rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      rec.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        resolve({ blob: new Blob(chunks, { type: 'audio/webm' }), hasSpeech, timedOut });
+      };
+
+      const audioCtx = new AudioContext();
+      const src      = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      src.connect(analyser);
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+
+      const SILENCE_THRESHOLD = 8;
+      const SILENCE_MS = 1500;
+      const CHECK_MS   = 100;
+      let silenceMs    = 0;
+      const startMs    = Date.now();
+
+      rec.start(100);
+
+      const iv = setInterval(() => {
+        // External kill: toggle button pressed
+        if (!this._active) {
+          clearInterval(iv); audioCtx.close();
+          timedOut = true;
+          if (rec.state !== 'inactive') rec.stop();
+          return;
+        }
+
+        analyser.getByteTimeDomainData(buf);
+        const rms     = Math.sqrt(buf.reduce((s, v) => s + (v - 128) ** 2, 0) / buf.length);
+        const elapsed = Date.now() - startMs;
+
+        if (rms > SILENCE_THRESHOLD) { hasSpeech = true; silenceMs = 0; }
+        else if (hasSpeech)           { silenceMs += CHECK_MS; }
+
+        if (hasSpeech && silenceMs >= SILENCE_MS) {
+          // Post-speech silence: normal end
+          clearInterval(iv); audioCtx.close();
+          if (rec.state !== 'inactive') rec.stop();
+        } else if (!hasSpeech && elapsed >= presilenceTimeoutMs) {
+          // No speech within timeout: signal to exit conversation
+          clearInterval(iv); audioCtx.close();
+          timedOut = true;
+          if (rec.state !== 'inactive') rec.stop();
+        } else if (elapsed >= maxMs) {
+          // Hard max: cut off
+          clearInterval(iv); audioCtx.close();
+          if (rec.state !== 'inactive') rec.stop();
+        }
+      }, CHECK_MS);
+    });
+  }
+
+  // ── Conversation timer ─────────────────────────────────────────────────────
+
+  _startConvTimer() {
+    const $t = document.getElementById('conv-timer');
+    if (!$t) return;
+    $t.style.display = 'inline';
+    this._convTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - this._convStartMs) / 1000);
+      $t.textContent = ` ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    }, 1000);
+  }
+
+  _stopConvTimer() {
+    if (this._convTimer) { clearInterval(this._convTimer); this._convTimer = null; }
+    const $t = document.getElementById('conv-timer');
+    if ($t) { $t.style.display = 'none'; $t.textContent = ''; }
+  }
+
+  // ── Interaction flows ──────────────────────────────────────────────────────
+
+  // Entry point: wake word detected. Records first command, then enters CONV MODE.
+  async _handleInteraction() {
+    if (this._busy || !this._active) return;
+    this._busy = true;
+
+    try {
+      this._setStatus('wakeword');
+      this._stopRecognition();
+      this._playBeep();
+      await new Promise(r => setTimeout(r, 350));
+
+      // Record first command
+      this._setStatus('recording');
+      let firstResult;
+      try { firstResult = await this._recordCommand({ maxMs: 10000, presilenceTimeoutMs: 10000 }); }
+      catch (e) { console.warn('CL: record failed', e); return; }
+
+      if (!this._active) return;
+
+      const { blob: b0, hasSpeech: hs0 } = firstResult;
+      if (!hs0 || !b0 || b0.size < 500) { showToast('Aucune commande détectée', true); return; }
+
+      this._setStatus('thinking');
+      let text = '';
+      try {
+        const form = new FormData();
+        form.append('audio', b0, 'cmd.webm');
+        const r = await fetch('/transcribe', { method: 'POST', body: form });
+        if (!r.ok) throw new Error('transcribe');
+        text = ((await r.json()).text || '').trim();
+      } catch { console.warn('CL: transcribe failed'); return; }
+
+      if (!text || this._isExitIntent(text)) return;
+
+      // First NOVA response
+      await sendMessage(text);
+      if (!this._active) return;
+
+      // Wait for audio (with interruption support) before entering conv loop
+      this._setStatus('conv_speaking');
+      const interrupted = await this._waitForAudioWithInterrupt();
+
+      if (!this._active) return;
+
+      // Enter continuous conversation mode
+      await this._conversationLoop(interrupted);
+
+    } finally {
+      this._busy         = false;
+      this._inConversation = false;
+      this._stopConvTimer();
+      if (this._active) {
+        this._setStatus('listening');
+        this._startRecognition();
+      }
+    }
+  }
+
+  // Continuous multi-turn loop. startImmediate=true skips the post-response
+  // pause (used when the first response was interrupted mid-playback).
+  async _conversationLoop(startImmediate = false) {
+    const MAX_MS = 10 * 60 * 1000;  // 10-minute hard cap
+    this._convStartMs    = Date.now();
+    this._inConversation = true;
+    this._startConvTimer();
+
+    try {
+      if (!startImmediate) await new Promise(r => setTimeout(r, 300));
+
+      while (this._active && this._inConversation) {
+        // Hard cap
+        if (Date.now() - this._convStartMs >= MAX_MS) {
+          showToast('Durée maximale de conversation atteinte — au revoir !');
+          break;
+        }
+
+        const remaining = MAX_MS - (Date.now() - this._convStartMs);
+
+        // Listen for next user turn (cyan dot, 15s pre-speech timeout)
+        this._setStatus('conv_listening');
+        let result;
+        try {
+          result = await this._recordCommand({
+            maxMs: Math.min(30000, remaining),
+            presilenceTimeoutMs: 15000,
+          });
+        } catch { break; }
+
+        if (!this._active || !this._inConversation) break;
+
+        const { blob, hasSpeech, timedOut } = result;
+
+        if (timedOut || !hasSpeech) {
+          showToast('Fin de conversation — silence prolongé');
+          break;
+        }
+        if (!blob || blob.size < 500) continue; // spurious chunk
+
+        // Transcribe
+        this._setStatus('conv_thinking');
+        let text = '';
+        try {
+          const form = new FormData();
+          form.append('audio', blob, 'cmd.webm');
+          const r = await fetch('/transcribe', { method: 'POST', body: form });
+          if (!r.ok) throw new Error('transcribe');
+          text = ((await r.json()).text || '').trim();
+        } catch {
+          showToast("Désolé, je n'ai pas compris — réessaie");
+          continue;
+        }
+
+        if (!text) continue;
+
+        // Exit intent — user wants to end the conversation
+        if (this._isExitIntent(text)) {
+          showToast('Fin de conversation — à bientôt !');
+          break;
+        }
+
+        // Send to NOVA (handles TTS + word animation internally)
+        this._setStatus('conv_thinking');
+        try { await sendMessage(text); }
+        catch {
+          showToast("Désolé, erreur de communication — réessaie");
+          continue;
+        }
+
+        if (!this._active || !this._inConversation) break;
+
+        // Wait for TTS with interruption support
+        this._setStatus('conv_speaking');
+        const interrupted = await this._waitForAudioWithInterrupt();
+
+        if (!this._active || !this._inConversation) break;
+
+        // Short gap after natural end; skip if user interrupted
+        if (!interrupted) await new Promise(r => setTimeout(r, 300));
+      }
+    } finally {
+      this._inConversation = false;
+      this._stopConvTimer();
+    }
+  }
+
+  // ── Status display ─────────────────────────────────────────────────────────
+
+  // States: idle | listening | wakeword | recording | thinking | speaking
+  // Prefix with "conv_" to activate conversation mode styling (cyan dot + timer).
+  _setStatus(s) {
+    const isConv = s.startsWith('conv_');
+    const key    = isConv ? s.slice(5) : s;
+
+    const LABELS = {
+      listening: isConv ? '💬 Conversation active' : '👂 Listening...',
+      wakeword:  '🔔 Wake word!',
+      recording: '🎙️ Recording...',
+      thinking:  '🤔 Thinking...',
+      speaking:  '🔊 Speaking...',
+    };
+
+    const show  = key !== 'idle';
+    const dot   = key === 'idle' ? '' : (key === 'listening' ? 'pulse' : 'active');
+    const label = LABELS[key] || '';
+
+    const $st  = document.getElementById('listen-status');
+    const $dot = document.getElementById('listen-dot');
+    const $lbl = document.getElementById('listen-label');
+    if ($st)  { $st.style.display = show ? 'flex' : 'none'; $st.classList.toggle('conv', isConv); }
+    if ($dot) $dot.className      = 'listen-dot' + (dot ? ' ' + dot : '');
+    if ($lbl) $lbl.textContent    = label;
+  }
+}
+
+const continuousListener = new ContinuousListener();
+
+/* ── Event listeners ─────────────────────────────────────────────────────── */
+$sendBtn.addEventListener('click', () => sendMessage());
+
+$input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+$micBtn.addEventListener('click', toggleRecording);
+
+document.getElementById('new-chat-btn').addEventListener('click', newChat);
+
+document.getElementById('sidebar-toggle-btn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+document.getElementById('arc-btn').addEventListener('click', async () => {
+  await checkHealth();
+  showToast('Système NOVA — ' + $statusLbl.textContent);
+});
+
+$continuousBtn.addEventListener('click', () => {
+  unlockAudio();
+  if (continuousListener.isActive()) {
+    continuousListener.stop();
+    $continuousBtn.classList.remove('active');
+  } else {
+    continuousListener.start().then(ok => {
+      if (ok) $continuousBtn.classList.add('active');
+    });
+  }
+});
+
+const $voiceToggle = document.getElementById('voice-toggle-btn');
+$voiceToggle.addEventListener('click', () => {
+  unlockAudio(); // capture this gesture for future playback
+  state.voiceMode = !state.voiceMode;
+  $voiceToggle.classList.toggle('active', state.voiceMode);
+  $voiceToggle.textContent = state.voiceMode ? '🔊' : '🔇';
+  $voiceToggle.title = state.voiceMode ? 'Auto-voix activé' : 'Auto-voix désactivé';
+  if (!state.voiceMode) stopCurrentAudio();
+});
+
+/* ── Boot ────────────────────────────────────────────────────────────────── */
+init();
+</script>
+</body>
+</html>
