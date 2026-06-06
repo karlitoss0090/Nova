@@ -84,8 +84,15 @@ class MemoryManager:
             # NOT EXISTS. Add the constraint idempotently so ON CONFLICT (key)
             # is always valid, regardless of when the database was first set up.
             await conn.execute("""
-                ALTER TABLE facts
-                    ADD CONSTRAINT IF NOT EXISTS facts_key_unique UNIQUE (key)
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint
+                        WHERE conname = 'facts_key_unique'
+                    ) THEN
+                        ALTER TABLE facts ADD CONSTRAINT facts_key_unique UNIQUE (key);
+                    END IF;
+                END$$;
             """)
             await self._seed_facts(conn)
 
