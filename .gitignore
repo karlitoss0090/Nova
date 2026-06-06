@@ -1,0 +1,5 @@
+kokoro/*.onnx
+kokoro/*.bin
+venv/
+__pycache__/
+.env
